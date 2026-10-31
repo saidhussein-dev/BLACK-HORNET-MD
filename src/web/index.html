@@ -70,10 +70,14 @@ input{flex:1}
 textarea{width:100%;height:96px;resize:none;background:var(--in);border:1px solid var(--line);border-radius:11px;color:var(--tx);padding:10px;font:11px 'DM Mono',monospace}
 .warn{font-size:12px;color:var(--acc);margin:10px 0 0;line-height:1.5}
 .note{font-size:13px;color:var(--mut);line-height:1.6;text-align:center;margin:0}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
 .stats div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
 .stats b{display:block;font:500 15px 'DM Mono',monospace;color:var(--acc)}
 .stats small{font-size:11px;color:var(--mut)}
+.dl{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--tx);text-decoration:none;font:500 14px 'Outfit'}
+.dl:hover{border-color:var(--acc)}
+.foot{text-align:center;color:var(--mut);font:11px 'DM Mono',monospace;margin-top:14px}
+.qrbox.dim img{opacity:.15}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -84,10 +88,11 @@ textarea{width:100%;height:96px;resize:none;background:var(--in);border:1px soli
 <symbol id="i-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></symbol>
 <symbol id="i-warn" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
 <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+<symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></symbol>
 <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol></svg>
 <div class="orb o1"></div><div class="orb o2"></div>
 <div class="wrap">
-  <div class="brand"><div class="hex"><svg viewBox="0 0 48 48" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M24 3l18 10.5v21L24 45 6 34.5v-21z" stroke="url(#g)" stroke-width="2.5"/><path d="M15 20h18M13 26h22M16 32h16" stroke="url(#g)" stroke-width="3"/></svg></div><h1>BLACK <span>HORNET</span> MD</h1><p>link your WhatsApp in seconds</p></div>
+  <div class="brand"><div class="hex"><svg viewBox="0 0 48 48" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M24 3l18 10.5v21L24 45 6 34.5v-21z" stroke="url(#g)" stroke-width="2.5"/><path d="M15 20h18M13 26h22M16 32h16" stroke="url(#g)" stroke-width="3"/></svg></div><h1>BLACK <span>HORNET</span> MD</h1><p>session id generator</p></div>
 
   <div class="steps"><div class="st on"><i></i>01 · LINK</div><div class="st"><i></i>02 · VERIFY</div><div class="st"><i></i>03 · DONE</div></div>
 
@@ -127,35 +132,40 @@ textarea{width:100%;height:96px;resize:none;background:var(--in);border:1px soli
       </div>
 
       <div class="pane" id="p-qr">
-        <div class="qrbox"><img id="qrImg" alt="WhatsApp pairing QR code"><span id="qrWait">Generating QR…</span></div>
+        <div class="qrbox" id="qrBox"><img id="qrImg" alt="WhatsApp pairing QR code"><span id="qrWait">Generating QR…</span></div>
         <ol class="ol">
           <li>Open WhatsApp → <b>Linked Devices</b></li>
           <li>Tap <b>Link a Device</b> and scan this QR</li>
         </ol>
+        <p class="err" id="errQ" hidden></p>
+        <button class="btn ghost" id="newQR" hidden><svg class="ic"><use href="#i-refresh"/></svg>Get a new QR</button>
         <p class="hint">Refreshes automatically · Prefer a code? <a href="#" id="toCode" style="color:var(--acc)">Use pairing code instead</a></p>
       </div>
     </div>
 
     <div id="done" hidden>
-      <p class="ok"><svg class="ic"><use href="#i-ok"/></svg>Connected as +<span id="who"></span></p>
-      <div id="sess" hidden>
-        <label>SESSION_ID — save as an env var on your host</label>
-        <textarea id="sid" readonly></textarea>
-        <button class="btn ghost" id="copySid" style="margin-top:10px">Copy SESSION_ID</button>
-        <p class="warn"><svg class="ic"><use href="#i-warn"/></svg>Equivalent to your WhatsApp login. Never share it. A copy was also sent to your WhatsApp chat.</p>
-      </div>
-      <p class="note" id="sessNote" hidden></p>
+      <p class="ok"><svg class="ic"><use href="#i-ok"/></svg>WhatsApp linked</p>
+      <label>YOUR SESSION_ID — set it as the SESSION_ID variable on your bot host</label>
+      <textarea id="sid" readonly></textarea>
+      <button class="btn ghost" id="copySid" style="margin-top:10px">Copy SESSION_ID</button>
+      <p class="warn"><svg class="ic"><use href="#i-warn"/></svg>Equivalent to your WhatsApp login. Never share it. This page shows it only once; a copy was also sent to your WhatsApp chat.</p>
+      <button class="btn ghost" id="restart">Generate another</button>
     </div>
   </div>
 
-  <div class="stats"><div><b id="sSt">Waiting</b><small>status</small></div><div><b id="sVer">v—</b><small>version</small></div><div><b id="sUp">—</b><small>uptime</small></div></div>
+  <div class="stats">
+    <div><b id="sV">—</b><small>visitors</small></div><div><b id="sOk">—</b><small>linked</small></div>
+    <div><b id="sFail">—</b><small>failed</small></div><div><b id="sUp">—</b><small>uptime</small></div>
+  </div>
+  <a class="dl" id="dl" href="/download/bot" hidden><svg class="ic" style="margin:0"><use href="#i-dl"/></svg><span id="dlTxt">Download bot file</span></a>
+  <p class="foot" id="ver"></p>
 </div>
 
 <script src="/countries.js"></script>
 <script>
 const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
 let country = window.COUNTRIES.find((c) => c[1] === 'TZ');
-let tmr = null, left = 0, connected = false, tab = 'code', busy = false;
+let tab = 'code', busy = false, poll = null, cd = null, left = 0, qrSeq = 0;
 
 /* ---------- country picker ---------- */
 function renderList(filter) {
@@ -166,33 +176,55 @@ function renderList(filter) {
     : '<li class="none">No country found</li>';
 }
 function setCountry(c) { country = c; $('#pickTxt').innerHTML = `<b>${c[1]}</b> +${c[2]}`; }
-function openDD(open) {
-  $('#dd').classList.toggle('open', open);
-  if (open) { $('#q').value = ''; renderList(''); setTimeout(() => $('#q').focus(), 0); }
-}
+function openDD(open) { $('#dd').classList.toggle('open', open); if (open) { $('#q').value = ''; renderList(''); setTimeout(() => $('#q').focus(), 0); } }
 $('#pick').onclick = () => openDD(!$('#dd').classList.contains('open'));
 $('#q').oninput = (e) => renderList(e.target.value);
-$('#list').onclick = (e) => {
-  const li = e.target.closest('li[data-i]'); if (!li) return;
-  setCountry(window.COUNTRIES.find((c) => c[1] === li.dataset.i)); openDD(false); $('#num').focus();
-};
+$('#list').onclick = (e) => { const li = e.target.closest('li[data-i]'); if (!li) return; setCountry(window.COUNTRIES.find((c) => c[1] === li.dataset.i)); openDD(false); $('#num').focus(); };
 document.addEventListener('click', (e) => { if (!e.target.closest('.row')) openDD(false); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openDD(false); });
 setCountry(country);
 
-/* ---------- state helpers ---------- */
+/* ---------- helpers ---------- */
 function step(n) { $$('.st').forEach((e, i) => e.classList.toggle('on', i < n)); }
-function showTab(t) {
-  tab = t;
-  $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
-  $('#p-code').classList.toggle('on', t === 'code');
-  $('#p-qr').classList.toggle('on', t === 'qr');
-  if (t === 'qr') refreshQR();
-}
 function showErr(id, msg) { const el = $(id); el.textContent = msg || ''; el.hidden = !msg; }
-function showResult(on) { $('#c-form').hidden = on; $('#c-res').hidden = !on; step(on ? 2 : 1); }
+function stopPoll() { clearInterval(poll); poll = null; }
+function stopTimer() { clearInterval(cd); cd = null; }
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, j };
+}
+const post = (path, body) => api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
 
-/* ---------- pairing code ---------- */
+/* ---------- polling the generator for this visitor's attempt ---------- */
+function startPoll(token, mode) {
+  stopPoll();
+  const seq = mode === 'qr' ? ++qrSeq : qrSeq;
+  poll = setInterval(async () => {
+    try {
+      const { ok, status, j } = await api('/api/session-status/' + token, { cache: 'no-store' });
+      if (mode === 'qr' && seq !== qrSeq) return;
+      if (ok && j.status === 'ready') { stopPoll(); stopTimer(); return finish(j.sessionId); }
+      if (ok && j.status === 'waiting') {
+        if (mode === 'qr' && j.qr) { $('#qrImg').src = j.qr; $('#qrImg').style.display = 'block'; $('#qrWait').style.display = 'none'; }
+        return;
+      }
+      // error, expired, cancelled or unknown token
+      stopPoll(); stopTimer();
+      const msg = (j && j.error) || (status === 404 ? 'This attempt expired. Please try again.' : 'Something went wrong. Please try again.');
+      if (mode === 'qr') qrExpired(msg); else { showErr('#err2', msg); $('#tm').textContent = 'request a new code to continue'; }
+    } catch (e) { /* network blip: keep polling */ }
+  }, 2000);
+}
+
+function finish(sessionId) {
+  step(3);
+  $('#pairing').hidden = true; $('#done').hidden = false;
+  $('#sid').value = sessionId;
+  fetchStats();
+}
+
+/* ---------- pair code (main) ---------- */
 function drawCode(code) {
   const c = code.replace('-', '');
   $('#codeBox').innerHTML = [...c].map((x, i) => (i === 4 ? '<b>–</b>' : '') + '<span>' + x + '</span>').join('');
@@ -200,7 +232,7 @@ function drawCode(code) {
 function tick() {
   $('#bar').style.width = Math.max(left, 0) / 60 * 100 + '%';
   $('#tm').textContent = left > 0 ? 'expires in ' + left + 's' : 'code expired — request a new one';
-  if (left <= 0) clearInterval(tmr);
+  if (left <= 0) stopTimer();
   left--;
 }
 async function getCode(errId) {
@@ -208,62 +240,78 @@ async function getCode(errId) {
   busy = true; showErr(errId, '');
   const btns = [$('#gen'), $('#again')]; btns.forEach((b) => (b.disabled = true));
   try {
-    const r = await fetch('/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dial: country[2], number: $('#num').value }) });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || 'Could not get a pairing code. Try again.');
-    drawCode(j.code); showResult(true);
-    clearInterval(tmr); left = j.expiresIn || 60; tick(); tmr = setInterval(tick, 1000);
+    const { ok, j } = await post('/api/request-code', { dial: country[2], number: $('#num').value });
+    if (!ok || !j.success) throw new Error(j.error || 'Could not get a pairing code. Try again.');
+    drawCode(j.code);
+    $('#c-form').hidden = true; $('#c-res').hidden = false; step(2); showErr('#err2', '');
+    stopTimer(); left = 60; tick(); cd = setInterval(tick, 1000);
+    startPoll(j.token, 'code');
   } catch (e) { showErr(errId, e.message); }
   busy = false; btns.forEach((b) => (b.disabled = false));
 }
 $('#gen').onclick = () => getCode('#err');
 $('#again').onclick = () => getCode('#err2');
+$('#num').addEventListener('keydown', (e) => { if (e.key === 'Enter') getCode('#err'); });
 $('#copy').onclick = function () {
   const t = [...$$('#codeBox span')].map((s) => s.textContent).join('');
   try { navigator.clipboard.writeText(t); } catch (e) {}
   this.textContent = 'Copied'; setTimeout(() => (this.textContent = 'Copy code'), 1500);
 };
-$('#num').addEventListener('keydown', (e) => { if (e.key === 'Enter') getCode('#err'); });
 
 /* ---------- QR ---------- */
-const qr = $('#qrImg');
-qr.onload = () => { qr.style.display = 'block'; $('#qrWait').style.display = 'none'; };
-qr.onerror = () => { qr.style.display = 'none'; $('#qrWait').style.display = 'block'; };
-function refreshQR() { if (tab === 'qr' && !connected) qr.src = '/qr.png?t=' + Date.now(); }
-setInterval(refreshQR, 5000);
-$$('.tabs button').forEach((b) => (b.onclick = () => showTab(b.dataset.t)));
+function qrExpired(msg) {
+  $('#qrImg').style.display = 'none'; $('#qrWait').style.display = 'block'; $('#qrWait').textContent = 'QR expired';
+  showErr('#errQ', msg && !/expired/i.test(msg) ? msg : ''); $('#newQR').hidden = false;
+}
+async function startQR() {
+  stopPoll(); showErr('#errQ', ''); $('#newQR').hidden = true;
+  $('#qrImg').style.display = 'none'; $('#qrWait').style.display = 'block'; $('#qrWait').textContent = 'Generating QR…';
+  try {
+    const { ok, j } = await post('/api/request-qr');
+    if (!ok || !j.success) throw new Error(j.error || 'Could not start QR pairing.');
+    step(2); startPoll(j.token, 'qr');
+  } catch (e) { qrExpired(e.message); }
+}
+$('#newQR').onclick = startQR;
+
+function showTab(t) {
+  tab = t;
+  $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+  $('#p-code').classList.toggle('on', t === 'code');
+  $('#p-qr').classList.toggle('on', t === 'qr');
+  stopPoll(); stopTimer(); qrSeq++;
+  if (t === 'qr') { step(1); startQR(); }
+  else { $('#c-form').hidden = false; $('#c-res').hidden = true; showErr('#err', ''); step(1); }
+}
+$$('.tabs button').forEach((b) => (b.onclick = () => { if (b.dataset.t !== tab) showTab(b.dataset.t); }));
 $('#toCode').onclick = (e) => { e.preventDefault(); showTab('code'); };
 
-/* ---------- status + connected ---------- */
-function fmtUp(s) { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? h + 'h ' + m + 'm' : m ? m + 'm' : s + 's'; }
-async function showConnected(st) {
-  connected = true; clearInterval(tmr); step(3);
-  $('#pairing').hidden = true; $('#done').hidden = false; $('#who').textContent = st.phone || '';
-  try {
-    const r = await fetch('/session'); const j = await r.json();
-    if (r.ok) { $('#sid').value = j.sessionId; $('#sess').hidden = false; return; }
-    const msgs = {
-      restored: 'Running from your SESSION_ID environment variable — nothing new to save.',
-      expired: 'The SESSION_ID display window has passed. It was sent to your WhatsApp chat and printed in the bot logs.',
-      'not-pairing-browser': 'The SESSION_ID is only shown to the browser that paired. Check your WhatsApp chat or the bot logs.'
-    };
-    $('#sessNote').textContent = msgs[j.reason] || 'SESSION_ID is available in your WhatsApp chat and the bot logs.';
-    $('#sessNote').hidden = false;
-  } catch (e) {}
-}
+/* ---------- done ---------- */
 $('#copySid').onclick = function () {
   try { navigator.clipboard.writeText($('#sid').value); } catch (e) { $('#sid').select(); }
   this.textContent = 'Copied'; setTimeout(() => (this.textContent = 'Copy SESSION_ID'), 1500);
 };
-async function poll() {
+$('#restart').onclick = () => { $('#sid').value = ''; $('#done').hidden = true; $('#pairing').hidden = false; tab = ''; showTab('code'); };
+
+/* ---------- real stats + bot download ---------- */
+function fmtUp(s) { const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); return d ? d + 'd ' + h + 'h' : h ? h + 'h ' + m + 'm' : m ? m + 'm' : s + 's'; }
+async function fetchStats() {
   try {
-    const st = await (await fetch('/status')).json();
-    $('#sVer').textContent = 'v' + st.version; $('#sUp').textContent = fmtUp(st.uptime);
-    $('#sSt').textContent = st.connected ? 'Online' : 'Waiting';
-    if (st.connected && !connected) showConnected(st);
-  } catch (e) { $('#sSt').textContent = 'Offline'; }
+    const { j } = await api('/api/stats', { cache: 'no-store' });
+    $('#sV').textContent = j.visitors; $('#sOk').textContent = j.successful; $('#sFail').textContent = j.failed; $('#sUp').textContent = fmtUp(j.uptimeSeconds);
+    $('#ver').textContent = j.botName + ' ' + j.botVersion;
+  } catch (e) {}
 }
-poll(); setInterval(poll, 3000);
+async function fetchBotFile() {
+  try {
+    const { j } = await api('/api/bot-file', { cache: 'no-store' });
+    if (j.available) {
+      const mb = j.sizeBytes ? ' (' + (j.sizeBytes / 1048576).toFixed(1) + ' MB)' : '';
+      $('#dlTxt').textContent = 'Download bot file' + mb; $('#dl').hidden = false;
+    }
+  } catch (e) {}
+}
+fetchStats(); fetchBotFile(); setInterval(fetchStats, 15000);
 </script>
 </body>
 </html>
