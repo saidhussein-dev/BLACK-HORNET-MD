@@ -4,6 +4,7 @@
   "description": "BLACK HORNET MD — WhatsApp security research & defensive bot (Blue Team: validation, rate limiting, anomaly detection, monitoring, recovery, reporting).",
   "main": "index.js",
   "scripts": {
+    "setup-assets": "node src/utils/generatePayload.js",
     "start": "node index.js",
     "dev": "node --watch index.js",
     "test": "node --test"
@@ -14,7 +15,8 @@
     "express": "^4.22.3",
     "pino": "^8.21.0",
     "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.33.5"
   },
   "engines": {
     "node": ">=20.13.3"
