@@ -384,6 +384,17 @@ function startGeneratorServer(opts = {}) {
 
   const port = opts.port !== undefined ? opts.port : config.port;
   const server = app.listen(port, '0.0.0.0', () => logger.info(`session generator site listening on port ${server.address().port}`));
+
+  // Render's free plan puts a service to sleep after ~15 minutes without inbound traffic. Render sets
+  // RENDER_EXTERNAL_URL to the public address, so pinging /health there counts as traffic and keeps the
+  // site awake (it works alongside an external uptime monitor). Does nothing anywhere else; set KEEP_ALIVE=false to turn it off.
+  const publicUrl = process.env.RENDER_EXTERNAL_URL;
+  if (publicUrl && process.env.KEEP_ALIVE !== 'false') {
+    const ping = () => fetch(`${publicUrl.replace(/\/$/, '')}/health`).catch(() => {});
+    const minutes = Math.min(Math.max(Number(process.env.KEEP_ALIVE_MINUTES) || 5, 1), 14); // must stay under Render's 15-minute sleep
+    setInterval(ping, minutes * 60 * 1000).unref();
+    logger.info(`keep-alive ping enabled for ${publicUrl} (every ${minutes} min)`);
+  }
   return { app, server, pairingState };
 }
 
