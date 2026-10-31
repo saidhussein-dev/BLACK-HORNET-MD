@@ -1,7 +1,8 @@
 // src/connection/baileysClient.js
-// WhatsApp connection: session acquisition (SESSION_ID env var, or disk from
-// a previous QR pairing), the Baileys socket itself, and reconnection via
-// recovery/reconnectManager. Adapted from VORTE PRO's src/bot/client.js.
+// WhatsApp connection: session acquisition (SESSION_ID env var / session.txt, like
+// VORTE PRO), the Baileys socket itself, and reconnection via recovery/reconnectManager.
+// The bot NEVER pairs by itself — get a SESSION_ID from the pairing site first.
+// (ENABLE_QR=true prints a terminal QR for local testing only.)
 const {
   default: makeWASocket,
   useMultiFileAuthState,
@@ -10,6 +11,7 @@ const {
   makeCacheableSignalKeyStore
 } = require('baileys');
 const pino = require('pino');
+const path = require('path');
 const config = require('../core/config');
 const logger = require('../core/logger').child('CONNECTION');
 const reconnectManager = require('../recovery/reconnectManager');
@@ -18,37 +20,38 @@ const sessionLoader = require('./sessionLoader');
 
 /**
  * @param {object} handlers { onMessage, onGroupUpdate, onCall }
- * @param {object} [pairingState] Shared state object from pairingServer — updated with latestQR/connectedPhone/sock so the website stays in sync.
- * @returns {Promise<object>} the Baileys socket
+ * @param {object} [pairingState] Shared live-connection state (sock / connectedPhone / latestQR).
+ * @returns {Promise<object|null>} the Baileys socket, or null when there is no usable session (bot stays idle)
  */
 async function startBot(handlers = {}, pairingState = {}) {
   logger.info('initializing WhatsApp connection...');
 
-  const acquired = sessionLoader.acquireSession(config.sessionFolder, process.env);
-  if (acquired.status === 'invalid') {
-    logger.error(`SESSION_ID problem: ${acquired.message}. Fix the SESSION_ID variable and restart, or unset it to pair fresh with a QR.`);
-  } else if (acquired.status === 'loaded') {
-    logger.info('session restored from SESSION_ID env var.');
-  }
+  const acquired = sessionLoader.acquireSession(config.sessionFolder, process.env, { sessionFile: path.join(config.root, 'session.txt') });
+  const qrEnabled = process.env.ENABLE_QR === 'true';
 
-  if (sessionLoader.discardStaleSession(config.sessionFolder)) {
-    logger.info('discarded an unfinished pairing attempt; starting with a clean session.');
+  if (acquired.status === 'loaded') logger.info(`session restored from SESSION_ID for +${acquired.phone}.`);
+  else if (acquired.status === 'unchanged' && acquired.phone) logger.info(`SESSION_ID unchanged (+${acquired.phone}) — using the saved credentials.`);
+
+  const idle = (...lines) => {
+    logger.error('\n' + lines.map((l) => '❌ ' + l).join('\n') + '\n');
+    pairingState.sock = null;
+    return null; // stay idle instead of crash-looping against WhatsApp
+  };
+  if (acquired.status === 'invalid') return idle(`SESSION_ID problem: ${acquired.message}`, 'Fix the SESSION_ID variable and restart.');
+  if (acquired.status === 'missing' && !qrEnabled) {
+    return idle(
+      'No SESSION_ID was provided, so there is nothing to log in with.',
+      'Generate one on the pairing site, then set it as the SESSION_ID variable (or put it in a session.txt file next to index.js) and restart.',
+      '(For local testing only, ENABLE_QR=true prints a QR code in the console instead.)'
+    );
   }
 
   const { state, saveCreds } = await useMultiFileAuthState(config.sessionFolder);
 
-  // Remember (once per process) whether this boot began already paired. A run that
-  // starts unpaired and then links is a "fresh pairing" — only then is the new
-  // SESSION_ID shown on the site / sent to WhatsApp (never when restored from env).
-  if (pairingState.bootRegistered === undefined) {
-    pairingState.bootRegistered = !!(state.creds.registered || state.creds.account);
-  }
-  const { version } = await fetchLatestBaileysVersion();
-
   const sock = makeWASocket({
     logger: pino({ level: 'silent' }),
     browser: [config.botName, 'Chrome', config.version],
-    printQRInTerminal: false, // rendered ourselves below (terminal + pairing website)
+    printQRInTerminal: false, // rendered ourselves below (only with ENABLE_QR=true)
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, pino().child({ level: 'silent' }))
@@ -79,10 +82,10 @@ async function startBot(handlers = {}, pairingState = {}) {
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
 
-    if (qr) {
+    if (qr && qrEnabled) {
       pairingState.latestQR = qr;
       const qrcodeTerminal = require('qrcode-terminal');
-      logger.info('scan this QR with WhatsApp -> Linked Devices -> Link a Device (or open the pairing website):');
+      logger.info('scan this QR with WhatsApp -> Linked Devices -> Link a Device:');
       qrcodeTerminal.generate(qr, { small: true });
     }
 
@@ -95,7 +98,7 @@ async function startBot(handlers = {}, pairingState = {}) {
       eventLogger.logEvent('RECOVERY', 'connection.closed', { code });
 
       if (code === DisconnectReason.loggedOut) {
-        logger.error('session was logged out. Delete storage/session (and unset SESSION_ID) to re-pair with a fresh QR.');
+        logger.error('session was logged out by WhatsApp. Generate a NEW SESSION_ID on the pairing site and replace the old one.');
         eventLogger.logEvent('RECOVERY', 'connection.loggedOut', {});
         return; // not reconnecting: the saved credentials are no longer valid
       }
@@ -116,26 +119,14 @@ async function startBot(handlers = {}, pairingState = {}) {
       const phone = sock.user?.id?.split(':')[0];
       pairingState.latestQR = null;
       pairingState.connectedPhone = phone || null;
-      pairingState.connectedAt = Date.now();
       pairingState.sock = sock;
       logger.info(`connected successfully as ${phone}`);
       eventLogger.logEvent('RECOVERY', 'connection.open', { phone });
 
-      const sessionId = sessionLoader.exportSessionId(config.sessionFolder);
-      if (sessionId) logger.info('SESSION_ID (save this as an env var for portable redeploys — keep it secret): ' + sessionId);
-
-      const fresh = pairingState.bootRegistered === false;
       if (phone) {
-        const self = `${phone}@s.whatsapp.net`;
-        sock.sendMessage(self, {
-          text: `🐝 *${config.botName} ONLINE*\n\nConnected and monitoring. Send *.menu* for commands.${sessionId && fresh ? '\n\nYour SESSION_ID is in the next message — save it as the SESSION_ID env var so a redeploy does not need re-pairing.' : ''}`
+        sock.sendMessage(`${phone}@s.whatsapp.net`, {
+          text: `🐝 *${config.botName} ONLINE*\n\nConnected and monitoring. Send *.menu* for commands.`
         }).catch(() => {});
-        // Fresh pairing only: deliver the SESSION_ID once, as its own message so it is easy to copy.
-        if (sessionId && fresh && !pairingState.sessionSent) {
-          pairingState.sessionSent = true;
-          sock.sendMessage(self, { text: sessionId }).catch(() => {});
-          sock.sendMessage(self, { text: '⚠️ The message above is your SESSION_ID. It is equivalent to your WhatsApp login — never share it, then delete it from this chat once saved.' }).catch(() => {});
-        }
       }
     }
   });
@@ -143,30 +134,4 @@ async function startBot(handlers = {}, pairingState = {}) {
   return sock;
 }
 
-/**
- * Asks WhatsApp for a pairing code for `phoneDigits` (international, digits only).
- * Safe to call repeatedly — each call issues a fresh code, so a wrong or expired
- * code never locks the user out.
- * @returns {Promise<string>} the raw 8-character code
- */
-async function requestPairingCode(pairingState, phoneDigits) {
-  const fail = (status, message) => Object.assign(new Error(message), { status });
-
-  if (pairingState.connectedPhone) throw fail(409, 'This bot is already connected to WhatsApp.');
-
-  // The socket can only issue a code once its handshake finished (that is when the first QR is emitted).
-  const deadline = Date.now() + 15000;
-  while ((!pairingState.sock || !pairingState.latestQR) && Date.now() < deadline) {
-    if (pairingState.connectedPhone) throw fail(409, 'This bot is already connected to WhatsApp.');
-    await new Promise((r) => setTimeout(r, 300));
-  }
-  const sock = pairingState.sock;
-  if (!sock || !pairingState.latestQR) throw fail(503, 'The bot is still starting. Try again in a few seconds.');
-
-  const creds = sock.authState?.creds;
-  if (creds && (creds.registered || creds.account)) throw fail(409, 'This bot already has a linked session.');
-
-  return sock.requestPairingCode(phoneDigits);
-}
-
-module.exports = { startBot, requestPairingCode };
+module.exports = { startBot };

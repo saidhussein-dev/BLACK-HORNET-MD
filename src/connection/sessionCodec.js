@@ -13,23 +13,30 @@ function encodeSession(credsObject) {
 }
 
 /**
+ * Tolerant: trims, strips wrapping quotes and ANY whitespace/newlines (hosts and copy/paste
+ * often wrap long values), and finds the prefix even if something was pasted before it.
  * @returns {{ ok: true, creds: object } | { ok: false, error: string }}
  */
 function decodeSession(sessionId) {
   if (typeof sessionId !== 'string' || !sessionId.trim()) {
     return { ok: false, error: 'empty SESSION_ID' };
   }
-  const trimmed = sessionId.trim();
-  if (!trimmed.startsWith(PREFIX)) {
-    return { ok: false, error: `SESSION_ID does not start with the expected "${PREFIX}" prefix` };
+  const cleaned = sessionId.trim().replace(/^["']+|["']+$/g, '').replace(/\s+/g, '');
+  const at = cleaned.indexOf(PREFIX);
+  if (at === -1) {
+    return { ok: false, error: `SESSION_ID does not start with the expected "${PREFIX}" prefix (copy the whole value from the generator)` };
+  }
+  const b64 = cleaned.slice(at + PREFIX.length);
+  if (!b64 || !/^[A-Za-z0-9+/=_-]+$/.test(b64)) {
+    return { ok: false, error: 'SESSION_ID contains characters that are not valid base64 — it was probably cut or altered when pasted' };
   }
   try {
-    const json = Buffer.from(trimmed.slice(PREFIX.length), 'base64').toString('utf8');
+    const json = Buffer.from(b64.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
     const creds = JSON.parse(json);
     if (!creds || typeof creds !== 'object') return { ok: false, error: 'decoded SESSION_ID is not a valid object' };
-    return { ok: true, creds };
+    return { ok: true, creds, normalized: PREFIX + b64 };
   } catch (e) {
-    return { ok: false, error: `could not decode SESSION_ID: ${e.message}` };
+    return { ok: false, error: 'SESSION_ID could not be decoded — it is incomplete or corrupted. Generate a new one' };
   }
 }
 
