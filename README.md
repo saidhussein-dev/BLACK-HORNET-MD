@@ -8,7 +8,7 @@ A WhatsApp **defensive security research bot** built on Node.js and [Baileys](ht
 
 | Category | Commands | What it's for |
 |---|---|---|
-| 🌐 Pairing site | web page on `PORT` | Pairing code (main) or QR from a browser, and your portable `SESSION_ID` once connected |
+| 🌐 Session ID generator site | web page on `PORT` | Link WhatsApp with a pairing code (main) or QR and get your `SESSION_ID`; the bot is then deployed with it |
 | ⚙️ General | `.menu` `.ping` `.owner` | Basics |
 | 🔵 Blue Team | `.antispam` `.antilink` `.antimention` `.antibug` `.blacklist` `.mute` `.unmute` `.bluestatus` | Real-time input validation, flood/rate limiting, and strike-based enforcement (warn → mute → blacklist) |
 | 🔎 Security Scanner | `.scan` `.threatlog` | Analyze any message (or quote one) and score it 0–100 for malformed-payload / abuse patterns |
@@ -25,7 +25,9 @@ BLACK-HORNET-MD/
 ├── index.js                  # entry point
 ├── src/
 │   ├── core/                 # config, logger
-│   ├── connection/           # Baileys socket, QR + web pairing, SESSION_ID codec, message pipeline
+│   ├── generator/            # session ID generator site (pair code + QR), real stats
+│   ├── web/                  # the site's page (index.html, countries.js)
+│   ├── connection/           # Baileys socket, SESSION_ID codec/loader, message pipeline
 │   ├── commands/              # one file per command, auto-loaded (general/blueteam/scanner/monitor/recovery/reporting)
 │   ├── blueteam/              # validator, rate limiter, abuse tracker, filters, the defensive engine, per-chat config
 │   ├── detection/             # anomaly scoring + combined pattern/threat scoring (used by .scan)
@@ -55,35 +57,35 @@ This mirrors VORTE PRO's modular-command-handler / session-management approach (
    ```bash
    npm start
    ```
-4. Pair with WhatsApp **either way**:
-   - A QR code prints in the terminal — scan it from WhatsApp → **Linked Devices → Link a Device**, or
-   - Open `http://localhost:3000` (or your host's assigned URL/port) in a browser. **Pair Code** tab (default): pick your country, enter your number, get an 8-character code, then WhatsApp → Linked Devices → Link with phone number instead → enter it. **QR Code** tab: the same QR as a clean image. Wrong or expired code? Request a new one any time.
-5. Once connected, the console, the pairing website (to the browser that paired) and your own WhatsApp chat all give you a `SESSION_ID` string. **Save it** (e.g. as an env var on your host) — see [Portable sessions](#portable-sessions--session_id) below.
-6. Message the bot (or add it to a test group) and send `.menu`.
+4. **Get a SESSION_ID** — the bot never pairs by itself. Open the generator site (`http://localhost:3000`, or your host's URL):
+   - **Pair Code** tab (default): pick your country, enter your number, get an 8-character code, then WhatsApp → Linked Devices → Link with phone number instead → enter it.
+   - **QR Code** tab: scan the QR from WhatsApp → Linked Devices → Link a Device.
+   - Wrong or expired code? Request a new one any time.
+   The site shows your `SESSION_ID` once and also sends it to your WhatsApp chat. **Save it.**
+5. **Deploy the bot with it:** set `SESSION_ID` in `.env` (or your host's env vars, or a `session.txt` file next to `index.js`) and start the bot. Pairing on the site does **not** start the bot — the bot only runs where you give it a `SESSION_ID`. Without one it stays idle and tells you so.
+
+## Two ways to deploy (same as VORTE PRO)
+
+- **Generator site only** (e.g. Render): set `SESSION_GENERATOR_ONLY=true`. Only the website runs, no bot. `render.yaml` does this for you.
+- **The bot** (VPS, Katabump, your PC, ...): set `SESSION_ID` (never `SESSION_GENERATOR_ONLY`). The bot logs in with it; the generator site is also served on `PORT`.
 
 ## Portable sessions — `SESSION_ID`
 
-Baileys normally keeps your login in `storage/session/` on disk. That's fine on your own machine or a VPS, but some free/low-cost panels don't guarantee disk survives a reinstall or redeploy — so you'd have to re-scan a QR every time.
-
-To avoid that: once paired, copy the `SESSION_ID` string printed in the logs (or shown on the pairing website) into your `.env` / host's environment-variable panel as `SESSION_ID`. On the next boot, the bot restores its login straight from that variable instead of needing `storage/session/` at all. Treat it exactly like a password — anyone with that string can act as your logged-in WhatsApp session.
+`SESSION_ID` is one string (starts with `BHMD~`) that holds your WhatsApp login, so a redeploy or a panel with a wiped disk needs no re-pairing. Treat it exactly like a password. Using the **same** `SESSION_ID` again after a restart keeps the saved (fresher) credentials; supplying a **new** one replaces them. If WhatsApp logs the session out, the bot stops and asks for a new `SESSION_ID`. One session = one running bot: don't run the same `SESSION_ID` on two hosts at once.
 
 ## Deploying on Katabump (or similar Pterodactyl-based panels)
 
-This is a plain Node.js app, so it runs there like any other Node egg:
-1. Create a Node.js-type server, upload/clone this project, set the **startup command** to `npm start` (make sure `npm install` runs first — most panels do this automatically on install/boot).
-2. Set `OWNER_1` (and optionally `SESSION_ID`, once you have one) in the panel's **Environment Variables** section — not just in a `.env` file, since some panels don't read `.env` directly.
-3. The panel usually injects its own `PORT` — this bot already reads `process.env.PORT` for the pairing website, so you normally don't need to set it yourself.
-4. Open the subdomain/port the panel assigns you in a browser to get the pairing QR (more reliable than trying to read a QR out of the panel's console), scan it, then immediately copy the `SESSION_ID` it shows you.
-5. Redeploying or reinstalling later: paste that saved `SESSION_ID` back into the panel's env vars before starting — no new QR scan needed, as long as WhatsApp hasn't logged the session out on its own.
-
-I can't guarantee every detail of Katabump's free-tier limits (RAM/disk caps, whether it sleeps an idle process) since those change and vary by plan — check their current docs/Discord for that. Nothing about this bot is Katabump-specific beyond "it's a normal always-on Node process that needs outbound HTTPS and one open port."
+1. Upload this project (or point the panel at your git repo) and run `npm install`.
+2. In the panel's **Environment Variables** set `OWNER_1` and `SESSION_ID` (generate it on the generator site first — see Setup above). Start command: `npm start`.
+3. The panel usually injects `PORT`; the bot already reads it.
+4. Redeploying later: keep the same `SESSION_ID` in the env vars — no new pairing needed.
 
 ### Running tests
 
 ```bash
 npm test
 ```
-Runs 53 unit tests (`node --test`) covering the validator, rate limiter, abuse tracker, anomaly/pattern detection, JSON store durability, system monitor, command loader, access control, and the SESSION_ID codec/loader. No network or a live WhatsApp session is required to run them.
+Runs 59 unit tests (`node --test`) covering the validator, rate limiter, abuse tracker, anomaly/pattern detection, JSON store durability, system monitor, command loader, access control, the SESSION_ID codec/loader, and the session generator (pair code + QR flows, against a fake WhatsApp). No network or a live WhatsApp session is required to run them.
 
 ## Deployment
 

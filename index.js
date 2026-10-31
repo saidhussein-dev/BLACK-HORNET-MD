@@ -4,7 +4,7 @@ const logger = require('./src/core/logger').child('MAIN');
 const errorHandler = require('./src/recovery/errorHandler');
 const systemMonitor = require('./src/monitoring/systemMonitor');
 const alertConfig = require('./src/monitoring/alertConfig');
-const { startPairingServer } = require('./src/connection/pairingServer');
+const { startGeneratorServer } = require('./src/generator/server');
 const { startBot } = require('./src/connection/baileysClient');
 const { handleMessage } = require('./src/connection/messageHandler');
 
@@ -18,16 +18,22 @@ async function main() {
 
   errorHandler.install();
 
+  // Session ID generator website (pair code or QR -> SESSION_ID). It runs on PORT in both modes and
+  // never touches the bot's own connection. SESSION_GENERATOR_ONLY=true turns a deployment (e.g. Render)
+  // into the website only: no bot is started there.
+  const { pairingState } = startGeneratorServer();
+
+  if (process.env.SESSION_GENERATOR_ONLY === 'true') {
+    logger.info('SESSION_GENERATOR_ONLY is true — the bot will NOT start. Serving the session generator site only.');
+    return;
+  }
+
   if (!config.owners.length) {
     logger.warn('No OWNER_1 configured in .env — owner-only commands will be unreachable. See .env.example.');
   }
 
-  // Web pairing site: shows a live QR while unpaired, and a portable
-  // SESSION_ID once connected (useful on hosts where the console can't
-  // render a scannable QR, or where disk isn't guaranteed to persist).
-  const pairingState = startPairingServer();
-
-  await startBot({
+  // The bot logs in with a SESSION_ID (env var or session.txt); without one it stays idle.
+  const sock = await startBot({
     onMessage: (s, upsert) => handleMessage(s, upsert)
   }, pairingState);
 
@@ -41,7 +47,9 @@ async function main() {
     }).catch(() => {});
   });
 
-  logger.info(`bot initialization complete — pairing site on port ${config.port}, monitoring events.`);
+  logger.info(sock
+    ? `bot initialization complete — site on port ${config.port}, monitoring events.`
+    : `bot is idle (no SESSION_ID) — site on port ${config.port}.`);
 }
 
 main().catch((err) => {
