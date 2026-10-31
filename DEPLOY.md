@@ -83,10 +83,10 @@ docker logs -f black-hornet-md   # needs SESSION_ID in .env (generate it on the 
 
 Render hosts the **Session ID generator website**, not the bot (free instances sleep and have no persistent disk).
 
-1. New → Web Service → your repo. `render.yaml` sets everything: build `npm install`, start `npm start`, `SESSION_GENERATOR_ONLY=true`, health check `/health`.
+1. New → Web Service → your repo. `render.yaml` sets everything: build `npm ci` (uses the committed `package-lock.json`), start `npm start`, `SESSION_GENERATOR_ONLY=true`, health check `/health`.
 2. Open the `onrender.com` URL → pair with a code or QR → copy the `SESSION_ID`.
 3. Deploy the **bot** somewhere else (VPS, Katabump, your PC) with that `SESSION_ID`.
-4. Free tier sleeps after ~15 minutes without traffic; the first visit after that takes a while to wake. Optional: point an uptime monitor at `/health`.
+4. Free tier sleeps after ~15 minutes without traffic. On Render the site pings its own `/health` every 5 minutes to stay awake (`KEEP_ALIVE=false` turns that off, `KEEP_ALIVE_MINUTES` changes the interval, max 14); an external uptime monitor on `/health` works alongside it. If it is ever asleep, the first visit takes a while to wake it.
 5. Optional bot download button: put the bot ZIP at `files/BLACK-HORNET-MD.zip`, or set `BOT_DOWNLOAD_URL` (see `files/README.md`).
 
 ## Get a SESSION_ID

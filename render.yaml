@@ -3,11 +3,21 @@ services:
     name: black-hornet-pairing
     env: node
     plan: free
-    buildCommand: "npm install"
+    buildCommand: "npm ci"
     startCommand: "npm start"
     healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: "22"
       - key: SESSION_GENERATOR_ONLY
         value: "true"
+      - key: PORT
+        value: "10000"
+      # Render's free plan sleeps a service after ~15 min without traffic. The site pings its own
+      # public /health URL (Render provides RENDER_EXTERNAL_URL) so it keeps itself awake,
+      # on top of any external uptime monitor you run.
+      - key: KEEP_ALIVE
+        value: "true"
+      - key: KEEP_ALIVE_MINUTES
+        value: "5"
