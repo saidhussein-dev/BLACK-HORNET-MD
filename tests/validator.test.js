@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const validator = require('../src/blueteam/validator');
+const validator = require('../src/security/validator');
 
 test('clean short text is not suspicious', () => {
   const result = validator.validateMessage({ text: 'hello world' });
