@@ -10,17 +10,23 @@ const configStore = require('../security/configStore');
 const eventLogger = require('../reporting/eventLogger');
 
 function extractText(message) {
+  if (!message || typeof message !== 'object') {
+    return '';
+  }
+
   return (
-    message?.conversation ||
-    message?.extendedTextMessage?.text ||
-    message?.imageMessage?.caption ||
-    message?.videoMessage?.caption ||
+    message.conversation ||
+    message.extendedTextMessage?.text ||
+    message.imageMessage?.caption ||
+    message.videoMessage?.caption ||
     ''
   );
 }
 
 async function handleMessage(sock, upsert) {
-  if (upsert.type !== 'notify') return;
+  if (!upsert || upsert.type !== 'notify') {
+    return;
+  }
 
   for (const raw of upsert.messages || []) {
     try {
@@ -32,49 +38,60 @@ async function handleMessage(sock, upsert) {
 }
 
 async function processMessage(sock, raw) {
-  if (!raw?.key || raw.key.remoteJid === 'status@broadcast') return;
+  if (!raw?.key?.remoteJid || raw.key.remoteJid === 'status@broadcast') {
+    return;
+  }
 
   const chatJid = raw.key.remoteJid;
   const senderJid = raw.key.participant || raw.key.remoteJid;
   const sender = jid.normalize(senderJid);
 
+  if (!sender) {
+    return;
+  }
+
   const isGroup = jid.isGroup(chatJid);
-  const isOwner = !!raw.key.fromMe || config.isOwnerNumber(sender);
+  const isOwner = Boolean(raw.key.fromMe || config.isOwnerNumber(sender));
 
-  const text = extractText(raw.message).trim();
+  const message = raw.message || {};
+  const text = extractText(message).trim();
 
-  // Ignore non-command messages sent by the bot itself.
+  const vcard = message.contactMessage?.vcard || '';
+  const vcardArray = message.contactsArrayMessage?.contacts || [];
+
+  const mentionedJid =
+    message.extendedTextMessage?.contextInfo?.mentionedJid || [];
+
   const isCommand = text.startsWith(config.prefix);
 
-  if (raw.key.fromMe && !isCommand) return;
-
-  const vcard = raw.message?.contactMessage?.vcard || '';
-  const vcardArray = raw.message?.contactsArrayMessage?.contacts || [];
-  const mentionedJid =
-    raw.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+  // Ignore ordinary messages sent by the bot itself.
+  if (raw.key.fromMe && !isCommand) {
+    return;
+  }
 
   let isAdmin = false;
 
-  // Resolve group admin status when needed.
-  if (isGroup && text) {
+  // Fetch group metadata only when required.
+  if (isGroup && text && !isOwner) {
     try {
       const metadata = await sock.groupMetadata(chatJid);
 
-      const participant = metadata.participants.find(
-        (p) => jid.normalize(p.id) === sender
+      const participant = metadata.participants?.find(
+        (entry) => jid.normalize(entry.id) === sender
       );
 
-      isAdmin =
-        !!participant &&
+      isAdmin = Boolean(
+        participant &&
         (participant.admin === 'admin' ||
-          participant.admin === 'superadmin');
+          participant.admin === 'superadmin')
+      );
     } catch (err) {
       logger.debug('Could not retrieve group metadata:', err.message);
     }
   }
 
-  // Security inspection for group messages.
-  if (isGroup && text) {
+  // Inspect group messages containing supported content.
+  if (isGroup && (text || vcard || vcardArray.length)) {
     const verdict = securityEngine.inspect({
       chatJid,
       sender,
@@ -92,15 +109,17 @@ async function processMessage(sock, raw) {
         await sock.sendMessage(chatJid, {
           delete: raw.key
         });
-      } catch (_) {}
+      } catch (err) {
+        logger.debug('Could not delete flagged message:', err.message);
+      }
 
-      const messages = {
+      const notifications = {
         warn: `⚠️ @${sender} message blocked by ${verdict.feature}.`,
         mute: `🔇 @${sender} has been muted for repeated violations.`,
         blacklist: `🚫 @${sender} has been blacklisted for repeated violations.`
       };
 
-      const notification = messages[verdict.strikeAction];
+      const notification = notifications[verdict.strikeAction];
 
       if (notification) {
         await sock.sendMessage(
@@ -121,16 +140,18 @@ async function processMessage(sock, raw) {
     return;
   }
 
-  if (!isCommand) return;
+  if (!isCommand) {
+    return;
+  }
 
-  const args = text
-    .slice(config.prefix.length)
-    .trim()
-    .split(/\s+/);
+  const commandText = text.slice(config.prefix.length).trim();
 
-  const commandName = (args.shift() || '').toLowerCase();
+  if (!commandText) {
+    return;
+  }
 
-  if (!commandName) return;
+  const args = commandText.split(/\s+/);
+  const commandName = args.shift().toLowerCase();
 
   const messageContext = {
     chatJid,
