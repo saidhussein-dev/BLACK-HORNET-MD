@@ -1,16 +1,46 @@
-// src/core/config.js
-// Central configuration, loaded only from environment variables (.env). No secrets hardcoded.
+'use strict';
+
 require('dotenv').config();
+
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 
-const ownerRaw = [process.env.OWNER_1, process.env.OWNER_2].filter(Boolean);
-const ownerDigits = ownerRaw.map((n) => n.replace(/[^0-9]/g, ''));
+const ownerRaw = [
+  process.env.OWNER_1,
+  process.env.OWNER_2
+].filter(Boolean);
+
+const ownerDigits = ownerRaw.map((n) =>
+  n.replace(/[^0-9]/g, '')
+);
 
 const num = (value, fallback) => {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
+// Prefer new SEC_ variables, but support old BT_ variables temporarily.
+const securityEnv = (newName, oldName, fallback) =>
+  num(process.env[newName] ?? process.env[oldName], fallback);
+
+const security = {
+  maxTextLength: securityEnv('SEC_MAX_TEXT_LENGTH', 'BT_MAX_TEXT_LENGTH', 4000),
+  maxVcardLength: securityEnv('SEC_MAX_VCARD_LENGTH', 'BT_MAX_VCARD_LENGTH', 3000),
+  maxVcardCount: securityEnv('SEC_MAX_VCARD_COUNT', 'BT_MAX_VCARD_COUNT', 50),
+  maxMentions: securityEnv('SEC_MAX_MENTIONS', 'BT_MAX_MENTIONS', 15),
+  maxRepeatedChar: securityEnv('SEC_MAX_REPEATED_CHAR', 'BT_MAX_REPEATED_CHAR', 500),
+  maxInvisibleChars: securityEnv('SEC_MAX_INVISIBLE_CHARS', 'BT_MAX_INVISIBLE_CHARS', 200),
+
+  spamWindowMs: securityEnv('SEC_SPAM_WINDOW_MS', 'BT_SPAM_WINDOW_MS', 8000),
+  spamMaxMessages: securityEnv('SEC_SPAM_MAX_MESSAGES', 'BT_SPAM_MAX_MESSAGES', 6),
+
+  commandCooldownMs: securityEnv('SEC_COMMAND_COOLDOWN_MS', 'BT_COMMAND_COOLDOWN_MS', 1200),
+
+  strikeWarnAt: securityEnv('SEC_STRIKE_WARN_AT', 'BT_STRIKE_WARN_AT', 3),
+  strikeMuteAt: securityEnv('SEC_STRIKE_MUTE_AT', 'BT_STRIKE_MUTE_AT', 5),
+  strikeMuteMinutes: securityEnv('SEC_STRIKE_MUTE_MINUTES', 'BT_STRIKE_MUTE_MINUTES', 10),
+  strikeBlacklistAt: securityEnv('SEC_STRIKE_BLACKLIST_AT', 'BT_STRIKE_BLACKLIST_AT', 9)
 };
 
 module.exports = {
@@ -21,36 +51,28 @@ module.exports = {
   version: require('../../package.json').version,
   prefix: (process.env.PREFIX || '.').trim()[0] || '.',
 
-  // Owners / authorized testers (digits only, no '+' or spaces)
+  // Owners
   owners: ownerDigits,
 
-  // Pairing website (QR + portable SESSION_ID). Most hosting panels (Katabump
-  // and similar) inject their own PORT env var — fall back to 3000 locally.
+  // Server
   port: num(process.env.PORT, 3000),
 
   // Paths
-  sessionFolder: process.env.SESSION_FOLDER ? path.resolve(process.env.SESSION_FOLDER) : path.join(ROOT, 'storage', 'session'),
+  sessionFolder: process.env.SESSION_FOLDER
+    ? path.resolve(process.env.SESSION_FOLDER)
+    : path.join(ROOT, 'storage', 'session'),
+
   storageDir: path.join(ROOT, 'storage'),
   logsDir: path.join(ROOT, 'storage', 'logs'),
   reportsDir: path.join(ROOT, 'reports'),
   assetsDir: path.join(ROOT, 'assets'),
 
-  // Blue Team thresholds (overridable via .env)
-  blueTeam: {
-    maxTextLength: num(process.env.BT_MAX_TEXT_LENGTH, 4000),
-    maxVcardLength: num(process.env.BT_MAX_VCARD_LENGTH, 3000),
-    maxVcardCount: num(process.env.BT_MAX_VCARD_COUNT, 50),
-    maxMentions: num(process.env.BT_MAX_MENTIONS, 15),
-    maxRepeatedChar: num(process.env.BT_MAX_REPEATED_CHAR, 500),
-    maxInvisibleChars: num(process.env.BT_MAX_INVISIBLE_CHARS, 200),
-    spamWindowMs: num(process.env.BT_SPAM_WINDOW_MS, 8000),
-    spamMaxMessages: num(process.env.BT_SPAM_MAX_MESSAGES, 6),
-    commandCooldownMs: num(process.env.BT_COMMAND_COOLDOWN_MS, 1200),
-    strikeWarnAt: num(process.env.BT_STRIKE_WARN_AT, 3),
-    strikeMuteAt: num(process.env.BT_STRIKE_MUTE_AT, 5),
-    strikeMuteMinutes: num(process.env.BT_STRIKE_MUTE_MINUTES, 10),
-    strikeBlacklistAt: num(process.env.BT_STRIKE_BLACKLIST_AT, 9)
-  },
+  // Security configuration
+  security,
+
+  // Temporary backward compatibility.
+  // Remove after every module has migrated to config.security.
+  blueTeam: security,
 
   // Monitoring
   monitor: {
@@ -60,22 +82,23 @@ module.exports = {
     historySize: num(process.env.MON_HISTORY_SIZE, 200)
   },
 
-  // Reporting / storage caps
+  // Reporting
   reporting: {
     maxEvents: num(process.env.REPORT_MAX_EVENTS, 2000)
   },
 
-  // Testing environment: numbers Said has explicitly authorized for controlled
-  // red/blue-team exercises between his own devices. Nothing in this bot acts
-  // on a number that is not in this list AND not the owner.
+  // Authorized testing numbers
   authorizedTestNumbers: (process.env.AUTHORIZED_TEST_NUMBERS || '')
-    .split(',').map((s) => s.replace(/[^0-9]/g, '')).filter(Boolean),
+    .split(',')
+    .map((s) => s.replace(/[^0-9]/g, ''))
+    .filter(Boolean),
 
   isOwnerNumber(digits) {
     return ownerDigits.includes(digits);
   },
 
   isAuthorizedTestNumber(digits) {
-    return this.authorizedTestNumbers.includes(digits) || this.isOwnerNumber(digits);
+    return this.authorizedTestNumbers.includes(digits) ||
+      this.isOwnerNumber(digits);
   }
 };
