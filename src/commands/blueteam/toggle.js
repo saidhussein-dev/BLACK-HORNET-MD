@@ -1,8 +1,8 @@
-// src/commands/blueteam/toggle.js
+// src/commands/toggle.js
 // One command file handles antispam/antilink/antimention/antibug on/off —
 // they share identical logic, so four near-duplicate files would just be
 // copy-paste. Baileys-facing command names are generated below.
-const configStore = require('../../blueteam/configStore');
+const configStore = require('../../security/configStore');
 
 const FEATURES = {
   antispam: 'Flood / rate-limit protection on raw messages',
@@ -14,7 +14,7 @@ const FEATURES = {
 function makeToggleCommand(feature, description) {
   return {
     name: feature,
-    category: 'BLUE_TEAM',
+    category: 'SETTINGS',
     scope: 'GROUP',
     admin: true,
     usage: 'on|off',
