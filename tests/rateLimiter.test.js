@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { SlidingWindowLimiter, Cooldown } = require('../src/blueteam/rateLimiter');
+const { SlidingWindowLimiter, Cooldown } = require('../src/security/rateLimiter');
 
 test('sliding window limiter allows up to maxEvents, then trips', () => {
   const limiter = new SlidingWindowLimiter(1000, 3);
