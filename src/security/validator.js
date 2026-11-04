@@ -1,4 +1,4 @@
-// src/blueteam/validator.js
+// src/seurity/validator.js
 // Pure, stateless input validation. Given a message's text/vcard/mentions,
 // decide whether it matches known malformed-payload shapes ("bug" messages
 // used to crash or freeze a WhatsApp client) WITHOUT ever constructing such
