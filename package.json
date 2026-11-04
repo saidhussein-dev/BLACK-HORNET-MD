@@ -10,7 +10,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "baileys": "^7.0.0-rc14",
     "dotenv": "^16.6.1",
     "express": "^4.22.3",
     "pino": "^8.21.0",
