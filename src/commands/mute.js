@@ -1,9 +1,9 @@
-const configStore = require('../../blueteam/configStore');
+const configStore = require('../../security/configStore');
 const jid = require('../../utils/jid');
 
 module.exports.mute = {
   name: 'mute',
-  category: 'BLUE_TEAM',
+  category: 'SETTINGS',
   scope: 'GROUP',
   admin: true,
   usage: '<number> [minutes]',
