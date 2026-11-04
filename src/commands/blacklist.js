@@ -3,7 +3,7 @@ const jid = require('../../utils/jid');
 
 module.exports = {
   name: 'blacklist',
-  category: 'BLUE_TEAM',
+  category: 'SETTINGS',
   scope: 'OWNER',
   usage: 'add|remove|list <number>',
   description: 'Manage the global blacklist (silently ignored everywhere)',
