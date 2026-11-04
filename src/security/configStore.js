@@ -1,4 +1,4 @@
-// src/blueteam/configStore.js
+// src/security/configStore.js
 // Per-chat Blue Team toggles (antispam/antilink/antimention/antibug), the
 // mute list and the blacklist. Mirrors VORTE PRO's settings.json pattern:
 // one JSON file, atomic writes, cached in memory.
