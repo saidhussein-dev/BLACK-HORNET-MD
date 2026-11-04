@@ -1,4 +1,4 @@
-const configStore = require('../../blueteam/configStore');
+const configStore = require('../../security/configStore');
 const jid = require('../../utils/jid');
 
 module.exports = {
