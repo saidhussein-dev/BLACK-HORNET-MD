@@ -1,4 +1,4 @@
-// src/commands/recovery/restart.js
+// src/commands/restart.js
 // Gracefully restarts the BOT PROCESS ITSELF (not anyone else's device).
 // Requires the bot to run under a process manager that restarts on exit
 // (pm2, systemd, Docker --restart=always) — see README "Deployment".
