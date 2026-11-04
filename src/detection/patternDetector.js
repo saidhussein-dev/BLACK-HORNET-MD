@@ -3,7 +3,7 @@
 // score with a verdict, for the `.scan` command and the research/reporting
 // pipeline. Detection and scoring ONLY — this module never constructs or
 // sends a malicious payload.
-const validator = require('../blueteam/validator');
+const validator = require('../security/validator');
 const anomalyDetector = require('./anomalyDetector');
 
 function verdictFor(score) {
