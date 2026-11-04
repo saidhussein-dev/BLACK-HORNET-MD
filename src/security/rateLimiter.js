@@ -1,4 +1,4 @@
-// src/blueteam/rateLimiter.js
+// src/security/rateLimiter.js
 // Generic sliding-window rate limiter, used both for raw-message flood
 // detection (antispam) and per-sender command cooldowns. Pure in-memory —
 // state resets on restart, which is fine for rate limiting.
