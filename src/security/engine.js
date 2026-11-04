@@ -3,7 +3,7 @@
 // filters, rate limiting and enforcement. This is the single place the
 // message handler calls into for Blue Team protection.
 const config = require('../core/config');
-const logger = require('../core/logger').child('BLUETEAM');
+const logger = require('../core/logger').child('security');
 const validator = require('./validator');
 const filters = require('./filters');
 const { SlidingWindowLimiter } = require('./rateLimiter');
