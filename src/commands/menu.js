@@ -5,7 +5,7 @@ const config = require('../../core/config');
 
 const CATEGORY_ORDER = [
   'GENERAL',
-  'BLUE_TEAM',
+  'SECURITY',
   'SCANNER',
   'MONITOR',
   'RECOVERY',
@@ -16,7 +16,7 @@ const CATEGORY_ORDER = [
 // Their displayed names don't need to expose the old architecture.
 const CATEGORY_LABEL = {
   GENERAL: 'GENERAL',
-  BLUE_TEAM: 'SECURITY',
+  SECURITY: 'SECURITY',
   SCANNER: 'SECURITY SCANNER',
   MONITOR: 'MONITORING',
   RECOVERY: 'RECOVERY',
