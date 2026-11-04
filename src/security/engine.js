@@ -1,4 +1,4 @@
-// src/blueteam/engine.js
+// src/security/engine.js
 // Orchestrates the defensive pipeline for one incoming message: validation,
 // filters, rate limiting and enforcement. This is the single place the
 // message handler calls into for Blue Team protection.
