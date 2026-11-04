@@ -1,7 +1,7 @@
 {
   "name": "black-hornet-md",
   "version": "1.0.0",
-  "description": "BLACK HORNET MD — WhatsApp security research & defensive bot (Blue Team: validation, rate limiting, anomaly detection, monitoring, recovery, reporting).",
+  "description": "BLACK HORNET MD — WhatsApp Bug Bot).",
   "main": "index.js",
   "scripts": {
     "setup-assets": "node src/utils/generatePayload.js",
