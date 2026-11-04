@@ -1,4 +1,4 @@
-// src/commands/scanner/scan.js
+// src/commands/scan.js
 // Analyzes a quoted/replied message (or the text passed as arguments) for
 // malformed-payload / crash-bug patterns, mass-mentions, vCard bombs etc.,
 // and reports a threat score. Detection only — it never sends such a payload.
