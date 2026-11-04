@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const engine = require('../src/blueteam/engine');
-const configStore = require('../src/blueteam/configStore');
+const engine = require('../src/security/engine');
+const configStore = require('../src/security/configStore');
 
 const CHAT = 'test-chat-engine@g.us';
 
