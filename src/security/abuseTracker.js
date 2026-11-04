@@ -1,4 +1,4 @@
-// src/blueteam/abuseTracker.js
+// src/security/abuseTracker.js
 // Strike-based escalation for repeat offenders: warn -> temporary mute -> blacklist.
 // In-memory strike counts (reset on restart by design — persistent punishment
 // lives in configStore's mute list / blacklist, which IS persisted).
