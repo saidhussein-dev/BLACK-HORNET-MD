@@ -6,8 +6,8 @@ const logger = require('../core/logger').child('MESSAGE');
 const config = require('../core/config');
 const jid = require('../utils/jid');
 const commandRegistry = require('../commands');
-const blueTeamEngine = require('../blueteam/engine');
-const configStore = require('../blueteam/configStore');
+const blueTeamEngine = require('../security/engine');
+const configStore = require('../security/configStore');
 const eventLogger = require('../reporting/eventLogger');
 
 function extractText(message) {
