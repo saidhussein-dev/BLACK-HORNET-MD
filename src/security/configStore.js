@@ -6,7 +6,7 @@ const path = require('path');
 const config = require('../core/config');
 const { JsonStore } = require('../database/jsonStore');
 
-const store = new JsonStore(path.join(config.storageDir, 'blueteam-config.json'), {
+const store = new JsonStore(path.join(config.storageDir, 'security-config.json'), {
   global: { blacklist: [] },
   chats: {} // chatJid -> { antispam, antilink, antimention, antibug, mutedUsers: { number: expiryTs } }
 });
