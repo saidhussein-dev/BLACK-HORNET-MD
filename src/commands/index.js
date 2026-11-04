@@ -1,83 +1,139 @@
-// src/commands/index.js
-// Modular command loader + dispatcher. Every .js file in this directory
-// (except this one) that exports { name, execute } becomes a command,
-// mirroring VORTE PRO's commandHandler pattern.
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
+
 const logger = require('../core/logger').child('COMMANDS');
 const config = require('../core/config');
 const access = require('../utils/access');
-const jid = require('../utils/jid');
 const statsStore = require('../reporting/statsStore');
 
 class CommandRegistry {
   constructor() {
     this.commands = new Map();
-    this.categories = new Map(); // category -> [commandName]
+    this.categories = new Map();
+
     this.load();
   }
 
   load() {
-    const walk = (dir) => {
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) { walk(full); continue; }
-        if (!entry.name.endsWith('.js') || full === __filename) continue;
-        try {
-          const mod = require(full);
-          // A file exports either one command ({ name, execute, ... }) or a
-          // map of several related commands ({ foo: {...}, bar: {...} }),
-          // as used by toggle.js for the four antispam/antilink/antimention/antibug twins.
-          const isCommand = (c) => c && typeof c.name === 'string' && typeof c.execute === 'function';
-          const list = isCommand(mod) ? [mod] : Object.values(mod || {}).filter(isCommand);
-          for (const command of list) {
-            this.commands.set(command.name, command);
-            (command.aliases || []).forEach((a) => this.commands.set(a, command));
-            const cat = command.category || 'GENERAL';
-            if (!this.categories.has(cat)) this.categories.set(cat, []);
-            this.categories.get(cat).push(command.name);
-          }
-        } catch (err) {
-          // A single broken command file must never stop the rest from loading.
-          logger.error(`failed to load command file "${full}":`, err.message);
+    this.commands.clear();
+    this.categories.clear();
+
+    const files = fs.readdirSync(__dirname, { withFileTypes: true });
+
+    for (const entry of files) {
+      if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
+      if (entry.name === path.basename(__filename)) continue;
+
+      const fullPath = path.join(__dirname, entry.name);
+
+      try {
+        delete require.cache[require.resolve(fullPath)];
+
+        const mod = require(fullPath);
+
+        const isCommand = (command) =>
+          command &&
+          typeof command.name === 'string' &&
+          typeof command.execute === 'function';
+
+        const commands = isCommand(mod)
+          ? [mod]
+          : Object.values(mod || {}).filter(isCommand);
+
+        for (const command of commands) {
+          this.register(command, entry.name);
         }
+      } catch (err) {
+        logger.error(
+          `Failed to load command "${entry.name}":`,
+          err.message
+        );
       }
-    };
-    walk(__dirname);
-    logger.info(`loaded ${this.commands.size} commands (including aliases) across ${this.categories.size} categories`);
+    }
+
+    logger.info(
+      `Loaded ${this.primaryCount()} commands across ${this.categories.size} categories`
+    );
+  }
+
+  register(command, filename) {
+    const name = command.name.toLowerCase();
+
+    if (this.commands.has(name)) {
+      logger.warn(`Duplicate command "${name}" in ${filename}. Skipping.`);
+      return;
+    }
+
+    command.name = name;
+    this.commands.set(name, command);
+
+    for (const alias of command.aliases || []) {
+      const normalizedAlias = alias.toLowerCase();
+
+      if (this.commands.has(normalizedAlias)) {
+        logger.warn(
+          `Duplicate alias "${normalizedAlias}" in ${filename}. Skipping alias.`
+        );
+        continue;
+      }
+
+      this.commands.set(normalizedAlias, command);
+    }
+
+    const category = command.category || 'GENERAL';
+
+    if (!this.categories.has(category)) {
+      this.categories.set(category, []);
+    }
+
+    this.categories.get(category).push(name);
   }
 
   get(name) {
-    return this.commands.get(name);
+    return this.commands.get(String(name).toLowerCase());
   }
 
   primaryCount() {
     return new Set(this.commands.values()).size;
   }
 
-  /**
-   * @param {object} sock Baileys socket
-   * @param {object} m Message context: { chatJid, sender, isOwner, isAdmin, raw }
-   * @param {string} commandName
-   * @param {string[]} args
-   */
   async dispatch(sock, m, commandName, args) {
     const command = this.get(commandName);
+
     if (!command) return false;
 
     const verdict = access.check(command, m);
+
     if (!verdict.ok) {
-      await sock.sendMessage(m.chatJid, { text: verdict.message }, { quoted: m.raw }).catch(() => {});
+      await sock.sendMessage(
+        m.chatJid,
+        { text: verdict.message },
+        { quoted: m.raw }
+      ).catch(() => {});
+
       return true;
     }
 
     try {
       statsStore.increment('commandsExecuted');
-      await command.execute(sock, m, args, { registry: this, botName: config.botName, prefix: config.prefix });
+
+      await command.execute(sock, m, args, {
+        registry: this,
+        botName: config.botName,
+        prefix: config.prefix
+      });
     } catch (err) {
-      logger.error(`error executing "${commandName}":`, err);
-      await sock.sendMessage(m.chatJid, { text: `❌ An error occurred while running .${commandName}.` }, { quoted: m.raw }).catch(() => {});
+      logger.error(`Error executing "${commandName}":`, err);
+
+      await sock.sendMessage(
+        m.chatJid,
+        { text: `An error occurred while running ${config.prefix}${commandName}.` },
+        { quoted: m.raw }
+      ).catch(() => {});
     }
+
     return true;
   }
 }
