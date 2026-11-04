@@ -1,14 +1,36 @@
+'use strict';
+
 module.exports = {
   name: 'ping',
   category: 'GENERAL',
   scope: 'BOTH',
   description: 'Check bot latency',
+
   async execute(sock, m) {
     const start = Date.now();
-    const sent = await sock.sendMessage(m.chatJid, { text: '🏓 Pinging...' }, { quoted: m.raw });
+
     const latency = Date.now() - start;
-    await sock.sendMessage(m.chatJid, { text: `🏓 Pong! ${latency}ms`, edit: sent?.key }).catch(async () => {
-      await sock.sendMessage(m.chatJid, { text: `🏓 Pong! ${latency}ms` });
+
+    let status = 'EXCELLENT';
+    if (latency >= 500) status = 'SLOW';
+    else if (latency >= 200) status = 'MODERATE';
+
+    const output = [
+      '╭━━━〔 PING RESULT 〕━━━╮',
+      '┃',
+      '┃  Status  : ONLINE',
+      `┃  Latency : ${latency} ms`,
+      `┃  Quality : ${status}`,
+      '┃',
+      '╰━━━━━━━━━━━━━━━━━━━━╯',
+      '       BLACK HORNET MD'
+    ].join('\n');
+
+    await sock.sendMessage(
+      m.chatJid,
+      { text: output, edit: sent?.key }
+    ).catch(async () => {
+      await sock.sendMessage(m.chatJid, { text: output });
     });
   }
 };
