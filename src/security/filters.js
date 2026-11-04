@@ -1,4 +1,4 @@
-// src/blueteam/filters.js
+// src/security/filters.js
 // Small, composable content filters used by the defensive message pipeline.
 const LINK_REGEX = /(https?:\/\/[^\s]+|www\.[^\s]+|chat\.whatsapp\.com\/[^\s]+|wa\.me\/[^\s]+)/i;
 
