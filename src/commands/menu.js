@@ -1,7 +1,7 @@
 'use strict';
 
 const os = require('os');
-const config = require('../../core/config');
+const path = require('path');
 
 const CATEGORY_ORDER = [
   'GENERAL',
@@ -12,8 +12,6 @@ const CATEGORY_ORDER = [
   'REPORTING'
 ];
 
-// Internal category names can remain unchanged.
-// Their displayed names don't need to expose the old architecture.
 const CATEGORY_LABEL = {
   GENERAL: 'GENERAL',
   SECURITY: 'SECURITY',
@@ -39,25 +37,24 @@ module.exports = {
   description: 'Show the BLACK HORNET MD command menu',
 
   async execute(sock, m, args, context) {
-    const { registry, prefix, botName } = context;
+    const { registry, prefix } = context;
 
     const usedRam = (process.memoryUsage().rss / 1024 / 1024).toFixed(1);
     const totalRam = (os.totalmem() / 1024 / 1024).toFixed(0);
     const uptime = formatDuration(process.uptime());
 
     const output = [
-const output = [
-  '╭━━━〔 BLACK HORNET MD 〕━━━╮',
-  '┃',
-  '┃  WhatsApp Crasher',
-  '┃  Creator  : 𝔇𝔢𝔞𝔱𝔥𝔰𝔱𝔯𝔬𝔨𝔢',
-  `┃  Prefix   : ${prefix}`,
-  `┃  Commands : ${registry.primaryCount()}`,
-  `┃  Uptime   : ${uptime}`,
-  `┃  Memory   : ${usedRam} MB / ${totalRam} MB`,
-  '┃  Status   : Online',
-  '┃'
-];
+      '╭━━━〔 BLACK HORNET MD 〕━━━╮',
+      '┃',
+      '┃  WhatsApp Crasher',
+      '┃  Creator  : 𝔇𝔢𝔞𝔱𝔥𝔰𝔱𝔯𝔬𝔨𝔢',
+      `┃  Prefix   : ${prefix}`,
+      `┃  Commands : ${registry.primaryCount()}`,
+      `┃  Uptime   : ${uptime}`,
+      `┃  Memory   : ${usedRam} MB / ${totalRam} MB`,
+      '┃  Status   : Online',
+      '┃'
+    ];
 
     for (const category of CATEGORY_ORDER) {
       const names = registry.categories.get(category);
@@ -84,15 +81,21 @@ const output = [
 
       output.push('┃');
     }
-output.push(
-  '╰━━━━━━━━━━━━━━━━━━━━╯',
-  '   CREATED BY 𝔇𝔢𝔞𝔱𝔥𝔰𝔱𝔯𝔬𝔨𝔢',
-  '        Enjoy :)'
-);
+
+    output.push(
+      '╰━━━━━━━━━━━━━━━━━━━━╯',
+      '   CREATED BY 𝔇𝔢𝔞𝔱𝔥𝔰𝔱𝔯𝔬𝔨𝔢',
+      '        Enjoy :)'
+    );
+
+    const menuImage = path.join(__dirname, '../../assets/menu.jpg');
 
     await sock.sendMessage(
       m.chatJid,
-      { text: output.join('\n') },
+      {
+        image: { url: menuImage },
+        caption: output.join('\n')
+      },
       { quoted: m.raw }
     );
   }
