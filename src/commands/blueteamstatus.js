@@ -1,9 +1,9 @@
-const configStore = require('../../blueteam/configStore');
+const configStore = require('../../security/configStore');
 
 module.exports = {
   name: 'bluestatus',
   aliases: ['btstatus'],
-  category: 'BLUE_TEAM',
+  category: 'SECURITY',
   scope: 'GROUP',
   description: 'Show Blue Team protection status for this chat',
   async execute(sock, m) {
