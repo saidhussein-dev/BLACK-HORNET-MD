@@ -1,66 +1,151 @@
-// src/seurity/validator.js
-// Pure, stateless input validation. Given a message's text/vcard/mentions,
-// decide whether it matches known malformed-payload shapes ("bug" messages
-// used to crash or freeze a WhatsApp client) WITHOUT ever constructing such
-// a payload ourselves. Detection-only, by design.
+'use strict';
+
+// Stateless message validation.
+// Detects suspicious message structures without generating harmful payloads.
+
 const config = require('../core/config');
 
-// Unicode categories commonly abused for "invisible flood" crash payloads:
-// zero-width characters, combining marks, and format/control characters.
-const INVISIBLE_CHAR_REGEX = /[​-‏‪-‮⁠-⁯︀-️̀-ͯ]/g;
+// Invisible Unicode characters and combining marks.
+const INVISIBLE_CHAR_REGEX = /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFE00-\uFE0F\u0300-\u036F]/g;
 
 function countInvisibleChars(text) {
+  if (typeof text !== 'string' || !text.length) {
+    return 0;
+  }
+
   const matches = text.match(INVISIBLE_CHAR_REGEX);
   return matches ? matches.length : 0;
 }
 
-/** Longest run of the same single character (catches "aaaaaa...x50000" flood strings). */
+/**
+ * Find the longest consecutive run of identical characters.
+ */
 function longestRepeatedRun(text) {
+  if (typeof text !== 'string' || !text.length) {
+    return 0;
+  }
+
   let longest = 1;
   let current = 1;
+
   for (let i = 1; i < text.length; i++) {
     if (text[i] === text[i - 1]) {
       current++;
-      if (current > longest) longest = current;
+
+      if (current > longest) {
+        longest = current;
+      }
     } else {
       current = 1;
     }
   }
-  return text.length ? longest : 0;
+
+  return longest;
 }
 
 /**
+ * Validate an incoming message.
+ *
  * @param {object} input
  * @param {string} input.text
- * @param {string} [input.vcard] Single contact vCard string
- * @param {Array}  [input.vcardArray] Array of { vcard } for contactsArrayMessage
- * @param {Array}  [input.mentionedJid]
- * @returns {{ suspicious: boolean, reasons: string[], metrics: object }}
+ * @param {string} [input.vcard]
+ * @param {Array} [input.vcardArray]
+ * @param {Array} [input.mentionedJid]
+ *
+ * @returns {{
+ *   suspicious: boolean,
+ *   reasons: string[],
+ *   metrics: object
+ * }}
  */
-function validateMessage({ text = '', vcard = '', vcardArray = [], mentionedJid = [] } = {}) {
+function validateMessage({
+  text = '',
+  vcard = '',
+  vcardArray = [],
+  mentionedJid = []
+} = {}) {
   const reasons = [];
-  const t = config.blueTeam;
+  const security = config.security;
+
+  // Normalize unexpected input types.
+  text = typeof text === 'string' ? text : '';
+  vcard = typeof vcard === 'string' ? vcard : '';
+
+  vcardArray = Array.isArray(vcardArray) ? vcardArray : [];
+  mentionedJid = Array.isArray(mentionedJid) ? mentionedJid : [];
 
   const textLength = text.length;
-  if (textLength > t.maxTextLength) reasons.push(`oversized text (${textLength} > ${t.maxTextLength} chars)`);
+
+  if (textLength > security.maxTextLength) {
+    reasons.push(
+      `oversized text (${textLength} > ${security.maxTextLength} chars)`
+    );
+  }
 
   const invisibleCount = countInvisibleChars(text);
-  if (invisibleCount > t.maxInvisibleChars) reasons.push(`excessive invisible/zero-width characters (${invisibleCount})`);
+
+  if (invisibleCount > security.maxInvisibleChars) {
+    reasons.push(
+      `excessive invisible characters (${invisibleCount})`
+    );
+  }
 
   const repeatedRun = longestRepeatedRun(text);
-  if (repeatedRun > t.maxRepeatedChar) reasons.push(`repeated-character flood (run of ${repeatedRun})`);
 
-  const totalVcardLength = (vcard?.length || 0) + vcardArray.reduce((sum, c) => sum + (c.vcard?.length || 0), 0);
-  if (totalVcardLength > t.maxVcardLength) reasons.push(`oversized vCard payload (${totalVcardLength} bytes)`);
-  if (vcardArray.length > t.maxVcardCount) reasons.push(`contact-array bomb (${vcardArray.length} contacts)`);
+  if (repeatedRun > security.maxRepeatedChar) {
+    reasons.push(
+      `repeated-character flood (run of ${repeatedRun})`
+    );
+  }
 
-  if ((mentionedJid?.length || 0) > t.maxMentions) reasons.push(`mass-mention / tag-bombing (${mentionedJid.length} mentions)`);
+  const arrayVcardLength = vcardArray.reduce((sum, contact) => {
+    return sum + (
+      typeof contact?.vcard === 'string'
+        ? contact.vcard.length
+        : 0
+    );
+  }, 0);
+
+  const totalVcardLength = vcard.length + arrayVcardLength;
+
+  if (totalVcardLength > security.maxVcardLength) {
+    reasons.push(
+      `oversized vCard payload (${totalVcardLength} chars)`
+    );
+  }
+
+  if (vcardArray.length > security.maxVcardCount) {
+    reasons.push(
+      `excessive contact count (${vcardArray.length})`
+    );
+  }
+
+  const mentionCount = mentionedJid.length;
+
+  if (mentionCount > security.maxMentions) {
+    reasons.push(
+      `excessive mentions (${mentionCount})`
+    );
+  }
 
   return {
     suspicious: reasons.length > 0,
     reasons,
-    metrics: { textLength, invisibleCount, repeatedRun, totalVcardLength, vcardCount: vcardArray.length, mentionCount: mentionedJid?.length || 0 }
+
+    metrics: {
+      textLength,
+      invisibleCount,
+      repeatedRun,
+      totalVcardLength,
+      vcardCount: vcardArray.length,
+      mentionCount
+    }
   };
 }
 
-module.exports = { validateMessage, countInvisibleChars, longestRepeatedRun, INVISIBLE_CHAR_REGEX };
+module.exports = {
+  validateMessage,
+  countInvisibleChars,
+  longestRepeatedRun,
+  INVISIBLE_CHAR_REGEX
+};
