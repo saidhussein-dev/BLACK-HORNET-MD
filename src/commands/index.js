@@ -20,11 +20,18 @@ class CommandRegistry {
     this.commands.clear();
     this.categories.clear();
 
-    const files = fs.readdirSync(__dirname, { withFileTypes: true });
+    const files = fs.readdirSync(__dirname, {
+      withFileTypes: true
+    });
 
     for (const entry of files) {
-      if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
-      if (entry.name === path.basename(__filename)) continue;
+      if (!entry.isFile() || !entry.name.endsWith('.js')) {
+        continue;
+      }
+
+      if (entry.name === path.basename(__filename)) {
+        continue;
+      }
 
       const fullPath = path.join(__dirname, entry.name);
 
@@ -36,6 +43,7 @@ class CommandRegistry {
         const isCommand = (command) =>
           command &&
           typeof command.name === 'string' &&
+          command.name.trim().length > 0 &&
           typeof command.execute === 'function';
 
         const commands = isCommand(mod)
@@ -48,7 +56,7 @@ class CommandRegistry {
       } catch (err) {
         logger.error(
           `Failed to load command "${entry.name}":`,
-          err.message
+          err
         );
       }
     }
@@ -59,18 +67,32 @@ class CommandRegistry {
   }
 
   register(command, filename) {
-    const name = command.name.toLowerCase();
+    const name = command.name.trim().toLowerCase();
 
     if (this.commands.has(name)) {
-      logger.warn(`Duplicate command "${name}" in ${filename}. Skipping.`);
+      logger.warn(
+        `Duplicate command "${name}" in ${filename}. Skipping.`
+      );
       return;
     }
 
     command.name = name;
+
     this.commands.set(name, command);
 
-    for (const alias of command.aliases || []) {
-      const normalizedAlias = alias.toLowerCase();
+    const aliases = Array.isArray(command.aliases)
+      ? command.aliases
+      : [];
+
+    for (const alias of aliases) {
+      if (typeof alias !== 'string' || !alias.trim()) {
+        logger.warn(
+          `Invalid alias in "${name}" from ${filename}. Skipping.`
+        );
+        continue;
+      }
+
+      const normalizedAlias = alias.trim().toLowerCase();
 
       if (this.commands.has(normalizedAlias)) {
         logger.warn(
@@ -82,7 +104,12 @@ class CommandRegistry {
       this.commands.set(normalizedAlias, command);
     }
 
-    const category = command.category || 'GENERAL';
+    const category =
+      typeof command.category === 'string' && command.category.trim()
+        ? command.category.trim().toUpperCase()
+        : 'GENERAL';
+
+    command.category = category;
 
     if (!this.categories.has(category)) {
       this.categories.set(category, []);
@@ -92,7 +119,11 @@ class CommandRegistry {
   }
 
   get(name) {
-    return this.commands.get(String(name).toLowerCase());
+    if (typeof name !== 'string') {
+      return undefined;
+    }
+
+    return this.commands.get(name.trim().toLowerCase());
   }
 
   primaryCount() {
@@ -102,7 +133,9 @@ class CommandRegistry {
   async dispatch(sock, m, commandName, args) {
     const command = this.get(commandName);
 
-    if (!command) return false;
+    if (!command) {
+      return false;
+    }
 
     const verdict = access.check(command, m);
 
@@ -125,11 +158,16 @@ class CommandRegistry {
         prefix: config.prefix
       });
     } catch (err) {
-      logger.error(`Error executing "${commandName}":`, err);
+      logger.error(
+        `Error executing "${commandName}":`,
+        err
+      );
 
       await sock.sendMessage(
         m.chatJid,
-        { text: `An error occurred while running ${config.prefix}${commandName}.` },
+        {
+          text: `An error occurred while running ${config.prefix}${commandName}.`
+        },
         { quoted: m.raw }
       ).catch(() => {});
     }
