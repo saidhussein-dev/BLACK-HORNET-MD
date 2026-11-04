@@ -12,7 +12,7 @@ async function main() {
   console.log(`
   ╔══════════════════════════════════════════╗
   ║   🐝  BLACK HORNET MD  —  v${config.version}
-  ║   WhatsApp Security Research & Defense
+  ║
   ╚══════════════════════════════════════════╝
   `);
 
