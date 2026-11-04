@@ -1,7 +1,7 @@
 {
   "name": "black-hornet-md",
   "version": "1.0.0",
-  "description": "BLACK HORNET MD — WhatsApp Bug Bot).",
+  "description": "BLACK HORNET MD - WhatsApp Bug Bot.",
   "main": "index.js",
   "scripts": {
     "setup-assets": "node src/utils/generatePayload.js",
@@ -10,13 +10,21 @@
     "test": "node --test"
   },
   "dependencies": {
-    "baileys": "^7.0.0-rc14",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
     "dotenv": "^16.6.1",
     "express": "^4.22.3",
     "pino": "^8.21.0",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "node-cache": "^5.1.2",
+    "zod": "^4.1.12",
+    "pino-pretty": "^13.1.1",
+    "bottleneck": "^2.19.5",
+    "prom-client": "^15.1.3"
+  },
+  "devDependencies": {
+    "c8": "^10.1.3"
   },
   "engines": {
     "node": ">=20.13.3"
